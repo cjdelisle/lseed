@@ -5,6 +5,7 @@ require (
 	github.com/btcsuite/btcd v0.20.1-beta
 	github.com/btcsuite/btcutil v0.0.0-20190425235716-9e5f4b9a998d
 	github.com/davecgh/go-spew v1.1.1
+	github.com/golang/protobuf v1.3.1 // indirect
 	github.com/lightningnetwork/lnd v0.8.1-beta
 	github.com/miekg/dns v1.0.7
 	github.com/onsi/ginkgo v1.8.0 // indirect

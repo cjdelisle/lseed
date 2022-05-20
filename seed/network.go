@@ -48,7 +48,7 @@ type Node struct {
 type ChainView struct {
 	NetView *NetworkView
 
-	Node lnrpc.LightningClient
+	//Node lnrpc.LightningClient
 }
 
 // The local view of the network
@@ -116,13 +116,13 @@ func (nv *NetworkView) RandomSample(query NodeType, count int) []Node {
 
 // Insert nodes into the map of known nodes. Existing nodes with the
 // same Id are overwritten.
-func (nv *NetworkView) AddNode(node *lnrpc.LightningNode) (*Node, error) {
+func (nv *NetworkView) AddNode0(pubKey string, addrs []*lnrpc.NodeAddress) (*Node, error) {
 	n := &Node{
-		Id:       node.PubKey,
+		Id:       pubKey,
 		LastSeen: time.Now(),
 	}
 
-	for _, netAddr := range node.Addresses {
+	for _, netAddr := range addrs {
 		// If the address doesn't already have a port, we'll assume the
 		// current default port.
 		var addr string
@@ -164,6 +164,10 @@ func (nv *NetworkView) AddNode(node *lnrpc.LightningNode) (*Node, error) {
 	}()
 
 	return n, nil
+}
+
+func (nv *NetworkView) AddNode(node *lnrpc.LightningNode) (*Node, error) {
+	return nv.AddNode0(node.PubKey, node.Addresses)
 }
 
 func copyNodeMap(a map[string]Node) map[string]Node {

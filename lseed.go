@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -32,6 +33,7 @@ var (
 	bitcoinNodeHost  = flag.String("btc-lnd-node", "", "The host:port of the backing btc lnd node")
 	litecoinNodeHost = flag.String("ltc-lnd-node", "", "The host:port of the backing ltc lnd node")
 	testNodeHost     = flag.String("test-lnd-node", "", "The host:port of the backing btc testlnd node")
+	pktNodeHost      = flag.String("pkt-lnd-node", "", "The host:port of the backing ltc lnd node")
 
 	bitcoinTLSPath  = flag.String("btc-tls-path", "", "The path to the TLS cert for the btc lnd node")
 	litecoinTLSPath = flag.String("ltc-tls-path", "", "The path to the TLS cert for the ltc lnd node")
@@ -124,6 +126,56 @@ func initLightningClient(nodeHost, tlsCertPath, macPath string) (lnrpc.Lightning
 	return lnd, nil
 }
 
+func pktGetGraph(pktNodeHost string) (*lnrpc.ChannelGraph, error) {
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", pktNodeHost+"/api/v1/lightning/graph", nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	msg, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	gc := lnrpc.ChannelGraph{}
+	if err := proto.Unmarshal(msg, &gc); err != nil {
+		return nil, err
+	}
+	return &gc, nil
+}
+
+func pktPoller(pktNodeHost string, nview *seed.NetworkView) {
+	scrapeGraph := func() {
+		graph, err := pktGetGraph(pktNodeHost)
+		if err != nil {
+			log.Errorf("Error getting node graph: {}", err)
+			return
+		}
+		log.Debugf("Got %d nodes from lnd", len(graph.Nodes))
+		for _, node := range graph.Nodes {
+			if len(node.Addresses) == 0 {
+				continue
+			}
+
+			if _, err := nview.AddNode(node); err != nil {
+				log.Debugf("Unable to add node: %v", err)
+			} else {
+				log.Debugf("Adding node: %v", node.Addresses)
+			}
+		}
+	}
+
+	scrapeGraph()
+
+	ticker := time.NewTicker(time.Second * time.Duration(*pollInterval))
+	for range ticker.C {
+		scrapeGraph()
+	}
+}
+
 // poller regularly polls the backing lnd node and updates the local network
 // view.
 func poller(lnd lnrpc.LightningClient, nview *seed.NetworkView) {
@@ -199,7 +251,7 @@ func main() {
 
 		netViewMap[""] = &seed.ChainView{
 			NetView: nView,
-			Node:    lndNode,
+			// Node:    lndNode,
 		}
 
 	}
@@ -219,7 +271,7 @@ func main() {
 
 		netViewMap["ltc."] = &seed.ChainView{
 			NetView: nView,
-			Node:    lndNode,
+			// Node:    lndNode,
 		}
 
 	}
@@ -240,7 +292,18 @@ func main() {
 
 		netViewMap["test."] = &seed.ChainView{
 			NetView: nView,
-			Node:    lndNode,
+			// Node:    lndNode,
+		}
+	}
+
+	if *pktNodeHost != "" {
+		log.Infof("Creating PKT chain view")
+		nView := seed.NewNetworkView("pkt")
+		go pktPoller(*pktNodeHost, nView)
+		log.Infof("PKT chain view active")
+		netViewMap["pkt."] = &seed.ChainView{
+			NetView: nView,
+			// Node:    nil,
 		}
 	}
 
