@@ -12,7 +12,7 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/lightningnetwork/lnd/lnrpc"
+	"github.com/roasbeef/lseed/lnd/lnrpc"
 )
 
 const (
@@ -167,7 +167,7 @@ func (nv *NetworkView) AddNode0(pubKey string, addrs []*lnrpc.NodeAddress) (*Nod
 }
 
 func (nv *NetworkView) AddNode(node *lnrpc.LightningNode) (*Node, error) {
-	return nv.AddNode0(node.PubKey, node.Addresses)
+	return nv.AddNode0(string(node.PubKey), node.Addresses)
 }
 
 func copyNodeMap(a map[string]Node) map[string]Node {
