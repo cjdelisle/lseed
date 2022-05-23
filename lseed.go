@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -13,17 +14,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	macaroon "gopkg.in/macaroon.v2"
-
 	log "github.com/Sirupsen/logrus"
 	"github.com/btcsuite/btcutil"
-	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/macaroons"
+	"github.com/roasbeef/lseed/lnd/lnrpc"
 	"github.com/roasbeef/lseed/seed"
+	macaroon "gopkg.in/macaroon.v2"
 )
 
 var (
@@ -126,9 +127,25 @@ func initLightningClient(nodeHost, tlsCertPath, macPath string) (lnrpc.Lightning
 	return lnd, nil
 }
 
+func unmarshal(r *http.Response, m proto.Message, isJson bool) error {
+	if isJson {
+		if err := jsonpb.Unmarshal(r.Body, m); err != nil {
+			return err
+		}
+	} else {
+		if b, err := io.ReadAll(r.Body); err != nil {
+			return err
+		} else if err := proto.Unmarshal(b, m); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func pktGetGraph(pktNodeHost string) (*lnrpc.ChannelGraph, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", pktNodeHost+"/api/v1/lightning/graph", nil)
+
 	if err != nil {
 		return nil, err
 	}
@@ -136,12 +153,9 @@ func pktGetGraph(pktNodeHost string) (*lnrpc.ChannelGraph, error) {
 	if err != nil {
 		return nil, err
 	}
-	msg, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
 	gc := lnrpc.ChannelGraph{}
-	if err := proto.Unmarshal(msg, &gc); err != nil {
+
+	if err := unmarshal(resp, &gc, true); err != nil {
 		return nil, err
 	}
 	return &gc, nil
