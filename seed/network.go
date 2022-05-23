@@ -344,7 +344,7 @@ func init() {
 		"169.254.0.0/16", // RFC3927 link-local
 		"::1/128",        // IPv6 loopback
 		"fe80::/10",      // IPv6 link-local
-		"fc00::/7",       // IPv6 unique local addr
+		//"fc00::/7",       // IPv6 unique local addr
 	} {
 		_, block, err := net.ParseCIDR(cidr)
 		if err != nil {
