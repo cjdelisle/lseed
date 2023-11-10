@@ -144,7 +144,9 @@ func unmarshal(r *http.Response, m proto.Message, isJson bool) error {
 
 func pktGetGraph(pktNodeHost string) (*lnrpc.ChannelGraph, error) {
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", pktNodeHost+"/api/v1/lightning/graph", nil)
+	jsonObj := []byte("{}")
+	req, err := http.NewRequest("POST", pktNodeHost+"/api/v1/lightning/graph", bytes.NewBuffer(jsonObj))
+	req.Header.Set("Content-Type", "application/json")
 
 	if err != nil {
 		return nil, err
